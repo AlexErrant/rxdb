@@ -14,6 +14,7 @@ import {
 } from 'array-push-at-sort-position';
 import { newRxError } from '../../rx-error';
 import { boundEQ } from './binary-search-bounds';
+import { now } from '../../util';
 
 
 export function getMemoryCollectionKey(
@@ -53,6 +54,10 @@ export function putWriteRowToState<RxDocType>(
     row: BulkWriteRow<RxDocType>,
     docInState?: RxDocumentData<RxDocType>
 ) {
+    const flag = now();
+
+    console.time('putWriteRowToState ' + flag);
+
     state.documents.set(docId, row.document);
     stateByIndex.forEach(byIndex => {
         const docsWithIndex = byIndex.docsWithIndex;
@@ -108,6 +113,7 @@ export function putWriteRowToState<RxDocType>(
             }
         }
     });
+    console.timeEnd('putWriteRowToState ' + flag);
 }
 
 

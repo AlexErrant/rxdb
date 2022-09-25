@@ -88,6 +88,13 @@ export class RxStorageInstanceMemory<RxDocType> implements RxStorageInstance<
         documentWrites: BulkWriteRow<RxDocType>[],
         context: string
     ): Promise<RxStorageBulkWriteResponse<RxDocType>> {
+
+        const flag = now();
+
+        console.log('#### BULK WRITE ' + documentWrites.length);
+
+        console.time('bulkWrite ' + flag);
+
         ensureNotRemoved(this);
 
         const ret: RxStorageBulkWriteResponse<RxDocType> = {
@@ -95,6 +102,7 @@ export class RxStorageInstanceMemory<RxDocType> implements RxStorageInstance<
             error: {}
         };
 
+        console.time('bulkWrite categorize ' + flag);
         const categorized = categorizeBulkWriteRows<RxDocType>(
             this,
             this.primaryPath as any,
@@ -102,15 +110,15 @@ export class RxStorageInstanceMemory<RxDocType> implements RxStorageInstance<
             documentWrites,
             context
         );
-        categorized.errors.forEach(err => {
-            ret.error[err.documentId] = err;
-        });
+        console.timeEnd('bulkWrite categorize ' + flag);
+        ret.error = categorized.errors;
 
         /**
          * Do inserts/updates
          */
         const stateByIndex = Object.values(this.internals.byIndex);
 
+        console.time('bulkWrite insert ' + flag);
         categorized.bulkInsertDocs.forEach(writeRow => {
             const docId = writeRow.document[this.primaryPath];
             putWriteRowToState(
@@ -122,7 +130,9 @@ export class RxStorageInstanceMemory<RxDocType> implements RxStorageInstance<
             );
             ret.success[docId as any] = writeRow.document;
         });
+        console.timeEnd('bulkWrite insert ' + flag);
 
+        console.time('bulkWrite update ' + flag);
         categorized.bulkUpdateDocs.forEach(writeRow => {
             const docId = writeRow.document[this.primaryPath];
             putWriteRowToState(
@@ -134,6 +144,7 @@ export class RxStorageInstanceMemory<RxDocType> implements RxStorageInstance<
             );
             ret.success[docId as any] = writeRow.document;
         });
+        console.timeEnd('bulkWrite update ' + flag);
 
         /**
          * Handle attachments
@@ -156,7 +167,9 @@ export class RxStorageInstanceMemory<RxDocType> implements RxStorageInstance<
                 attachmentMapKey(attachment.documentId, attachment.attachmentId)
             );
         });
+
         if (categorized.eventBulk.events.length > 0) {
+            console.time('bulkWrite events ' + flag);
             const lastState = getNewestOfDocumentStates(
                 this.primaryPath as any,
                 Object.values(ret.success)
@@ -166,7 +179,12 @@ export class RxStorageInstanceMemory<RxDocType> implements RxStorageInstance<
                 lwt: lastState._meta.lwt
             };
             this.changes$.next(categorized.eventBulk);
+            console.timeEnd('bulkWrite events ' + flag);
         }
+
+        console.timeEnd('bulkWrite ' + flag);
+        console.log('---- BULK WRITE END');
+
         return Promise.resolve(ret);
     }
 

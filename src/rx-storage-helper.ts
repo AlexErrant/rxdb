@@ -10,6 +10,7 @@ import {
 } from './rx-schema-helper';
 import type {
     BulkWriteRow,
+    ById,
     CategorizeBulkWriteRowsOutput,
     EventBulk,
     RxAttachmentWriteData,
@@ -179,7 +180,7 @@ export function categorizeBulkWriteRows<RxDocType>(
     const hasAttachments = !!storageInstance.schema.attachments;
     const bulkInsertDocs: BulkWriteRow<RxDocType>[] = [];
     const bulkUpdateDocs: BulkWriteRow<RxDocType>[] = [];
-    const errors: RxStorageBulkWriteError<RxDocType>[] = [];
+    const errors: ById<RxStorageBulkWriteError<RxDocType>> = {};
     const changedDocumentIds: RxDocumentData<RxDocType>[StringKeys<RxDocType>][] = [];
     const eventBulk: EventBulk<RxStorageChangeEvent<RxDocumentData<RxDocType>>, any> = {
         id: randomCouchString(10),
@@ -226,7 +227,7 @@ export function categorizeBulkWriteRows<RxDocType>(
                         status: 510,
                         writeRow
                     };
-                    errors.push(attachmentError);
+                    errors[id as any] = attachmentError;
                 } else {
                     attachmentsAdd.push({
                         documentId: id as any,
@@ -279,7 +280,7 @@ export function categorizeBulkWriteRows<RxDocType>(
                     writeRow: writeRow,
                     documentInDb
                 };
-                errors.push(err);
+                errors[id as any] = err;
                 return;
             }
 
@@ -345,7 +346,7 @@ export function categorizeBulkWriteRows<RxDocType>(
                 }
             }
             if (attachmentError) {
-                errors.push(attachmentError);
+                errors[id as any] = attachmentError;
             } else {
                 if (hasAttachments) {
                     bulkUpdateDocs.push(stripAttachmentsDataFromRow(writeRow));
